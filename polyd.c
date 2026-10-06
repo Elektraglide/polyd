@@ -2867,7 +2867,7 @@ struct conn *request;
 	}
 }
 
-#ifdef __clang__
+#ifndef TEK4404
 #pragma pack(push, 1)
 #endif
 struct eth2
