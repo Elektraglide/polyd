@@ -40,7 +40,7 @@ struct sir sirbuf;
 #else
 
 /* provide all boot services */
-#define SUNBOOT
+#define POLYD
 
 #include <stdlib.h>
 
@@ -1458,7 +1458,7 @@ int isinternal;
 			{
 				unsigned int major,minor;
 				get_majorminor(info.st_rdev, &major, &minor);
-				fprintf(console, "nfsd: get_attr: %s  uid:%d perm:%s dev(%d:%d) size:%ld\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major,minor, info.st_size);
+				fprintf(console, "nfsd: get_attr: %s  uid:%d perm:%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major,minor, (int)info.st_size);
 				info.st_uid = uid;
 				//info.st_gid = 0;
 				add_uint(&reply, NFS_OK);
@@ -1505,7 +1505,7 @@ int isinternal;
 			{
 				unsigned int major,minor;
 				get_majorminor(info.st_rdev, &major, &minor);
-				fprintf(console, "nfsd: lookup:%s uid:%d perms=%s dev(%d:%d) size:%ld\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major,minor, info.st_size);
+				fprintf(console, "nfsd: lookup:%s uid:%d perms=%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major,minor, (int)info.st_size);
 				info.st_uid = uid;
 				//info.st_gid = 0;
 				make_filehandle(filepath, &info, &handle);
@@ -2483,7 +2483,7 @@ int isinternal;
 			if (stat(filepath, &info) == 0)
 			{
 				add_uint(&reply, NFS_OK);
-				add_post_fattr3(&reply, &info), fh->fsid;
+				add_post_fattr3(&reply, &info, fh->fsid);
 				add_uint(&reply, sizeof(struct conn) + TRANSFER_SIZE);			/* rtmax */
 				add_uint(&reply, TRANSFER_SIZE);			/* rtpref */
 				add_uint(&reply, TRANSFER_SIZE);			/* rtmult */
@@ -2765,7 +2765,7 @@ struct conn *request;
 	}
 }
 
-#ifdef SUNBOOT
+#ifdef POLYD
 /* https://www.rfc-editor.org/info/rfc1350/ */
 #define TFTP_RRQ 1
 #define TFTP_DATA 3
@@ -2918,6 +2918,9 @@ struct eth2
 		} ipv4;
 	};
 };
+#ifndef TEK4404
+#pragma pack(pop)
+#endif
 
 #define BUFFER_SIZE 2048
 #define ETHER_ADDR_LEN 6
@@ -3067,7 +3070,7 @@ int open_bpf_device(const char *iface_name, uint8_t *hostmac) {
 }
 #endif
 
-#endif	// SUNBOOTs
+#endif	// POLYDs
 
 int main(argc, argv)
 int argc;
@@ -3106,7 +3109,7 @@ char **argv;
 	locksock = create_UDP_sock("lockd", LOCKD_PORT);
 	nfssock = create_UDP_sock("nfsd", NFSD_PORT);
 
-#ifdef SUNBOOT
+#ifdef POLYD
 	/* required for sunbooting */
 	if (portmapsock < 0)
 	{
@@ -3122,7 +3125,7 @@ char **argv;
 		exit(-2);
 	}
 	
-#ifdef SUNBOOT
+#ifdef POLYD
 	/* we are going to offer rarp, tftp and bootparams too */
 	int rarp_bpf_fd = 0;
 	int tftpsock = 0;
@@ -3271,7 +3274,7 @@ char **argv;
 		if (nfssock > n)
 			n = nfssock;
 
-#ifdef SUNBOOT
+#ifdef POLYD
 		/* are we in all-in-one mode? */
 		if (tftpsock > 0)
 		{
@@ -3358,7 +3361,7 @@ char **argv;
 				}
 			}
 		}
-#ifdef SUNBOOT
+#ifdef POLYD
 		else
 		if (FD_ISSET(rarp_bpf_fd, &fd_in))
 		{
