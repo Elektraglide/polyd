@@ -3252,13 +3252,6 @@ char **argv;
 			{
 				n++;
 				strcpy(bp_dump, argv[n]);
-                
-                /* must end with hostname; we could automagic this */
-                if (strcmp(bp_machinename, strrchr(bp_dump, '/')+1))
-                {
-                    fprintf(console, "%s: path does not finish with hostname: %s\n", bp_dump, bp_machinename);
-                    exit(-3);
-                }
 			}
 			else
 			{
