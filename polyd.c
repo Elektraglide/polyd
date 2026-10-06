@@ -1544,7 +1544,7 @@ int isinternal;
 						add_uint(&reply, NFS_OK);
 						add_fattr(&reply, &info, fh->fsid);
 						add_fromfile(&reply, fd, count);
-						fprintf(console, "  read: %s: %d bytes at %d\n", filepath, count, offset);
+						/*fprintf(console, "  read: %s: %d bytes at %d\n", filepath, count, offset);*/
 						close(fd);
 					}
 					else
@@ -1578,7 +1578,7 @@ int isinternal;
 						rc = lseek(fd, offset, SEEK_SET);
 						count = get_uint(request);
 						rc = write(fd, request->buffer + request->crp, count);
-						fprintf(console, "  write: %s: %d bytes at %d\n", filepath, rc, offset);
+						/*fprintf(console, "  write: %s: %d bytes at %d\n", filepath, rc, offset);*/
 						close(fd);
 						if (rc == count)
 						{
@@ -1652,7 +1652,7 @@ int isinternal;
 			if (unlink(filepath) == 0)
 			{
 				add_uint(&reply, NFS_OK);
-				/*fprintf(console, "nfsd: remove = %s\n", filepath);*/
+				fprintf(console, "nfsd: remove: %s\n", filepath);
 			}
 			else
 			{
@@ -1661,7 +1661,26 @@ int isinternal;
 			break;
 		case 11:
 			/* Rename */
-			break;
+            fh = get_filehandle(request, filepathfrom);
+            path = get_string(request);
+            strcat(filepathfrom, "/");
+            strcat(filepathfrom, path);
+            fh2 = get_filehandle(request, filepath);
+            path = get_string(request);
+            strcat(filepath, "/");
+            strcat(filepath, path);
+            rc = link(filepathfrom, filepath);
+            if (rc == 0)
+            {
+                unlink(filepathfrom);
+                add_uint(&reply, NFS_OK);
+                fprintf(console, "nfsd: rename: %s => %s\n", filepathfrom, filepath);
+            }
+            else
+            {
+                add_uint(&reply, errno);
+            }
+            break;
         case 12:
             /* Link */
             fh = get_filehandle(request, filepathfrom);
@@ -3199,6 +3218,14 @@ char **argv;
 				
 				n++;
 				strcpy(bp_fs, argv[n]);
+                
+                /* must end with hostname; we could automagic this */
+                if (strcmp(bp_machinename, strrchr(bp_fs, '/')+1))
+                {
+                    fprintf(console, "%s: path does not finish with hostname: %s\n", bp_fs, bp_machinename);
+                    exit(-3);
+                }
+                
 				fd = open(bp_fs, 0);
 				if (fd < 0)
 				{
@@ -3212,12 +3239,26 @@ char **argv;
 			{
 				n++;
 				strcpy(bp_swap, argv[n]);
+
+                /* must end with hostname; we could automagic this */
+                if (strcmp(bp_machinename, strrchr(bp_swap, '/')+1))
+                {
+                    fprintf(console, "%s: path does not finish with hostname: %s\n", bp_swap, bp_machinename);
+                    exit(-3);
+                }
 			}
 			else
 			if (!strcmp(argv[n],"-dump"))
 			{
 				n++;
 				strcpy(bp_dump, argv[n]);
+                
+                /* must end with hostname; we could automagic this */
+                if (strcmp(bp_machinename, strrchr(bp_dump, '/')+1))
+                {
+                    fprintf(console, "%s: path does not finish with hostname: %s\n", bp_dump, bp_machinename);
+                    exit(-3);
+                }
 			}
 			else
 			{
