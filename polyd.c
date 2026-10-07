@@ -1523,7 +1523,15 @@ int isinternal;
 			break;
 		case 5:
 			/* ReadLink */
-				fprintf(console, "nfsd: MISSING readlink = %s\n", filepath);
+            fh = get_filehandle(request, filepathfrom);
+            n = readlink(filepathfrom, filepath, sizeof(filepath));
+            if (n > 0)
+            {
+                filepath[n++]  ='\0';
+                add_uint(&reply, NFS_OK);
+                add_string(&reply, filepath, n);
+                fprintf(console, "nfsd: readlink:%s =>'%s'\n", filepathfrom, filepath);
+            }
 			break;
 		case 6:
 			/* Read */
