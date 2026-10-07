@@ -1836,7 +1836,7 @@ int isinternal;
 			add_uint(&reply, disksize);					/* Total # of blocks (of the above size) */
 			add_uint(&reply, freesize);					/* Free blocks */
 			add_uint(&reply, freesize);					/* Free blocks available to non-priv. users */
-			fprintf(console, "nfsd: statfs: disk:%d free:%d\n", disksize, freesize);
+			/*fprintf(console, "nfsd: statfs: disk:%d free:%d\n", disksize, freesize);*/
 			break;
 	}
 
