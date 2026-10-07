@@ -1,7 +1,7 @@
 # polyd
 Implements **rarpd, tftpd, portmapd, bootparamd** and **nfsdV2** in 1 executable to simplify SunOS netboot.
 
-To avoid polluting your machine with a whole raft of ancient services you'll never use again, this executable implements all the services required to netboot a SunOS workstation'
+To avoid polluting your machine with a whole raft of ancient services you'll never use again, this executable implements all the services required to netboot a SunOS workstation.
 
 Its a single file to compile with:
 
@@ -13,10 +13,15 @@ And you provide all the config right on the command line - for example:
 
 where "en0" is the network interface you are using.
 - -base XXX   path to folder with the boot.sun4c you are using, but renamed as hex IP address of the Sun  (C0A80147.SUN4C for addr 192.168.1.71)
-- -fs root filesystem
-- -swap contiguous swap file at least the size of the RAM you have
-- -dump place to dump memory
+- -fs XXX path to root filesystem
+- -swap XXX path to contiguous swap file at least the size of the RAM you have
+- -dump XXX path to place to dump memory
 
-Note that -fs and -swap filepaths need to end in the hostname
+**Note that -fs and -swap filepaths need to end in the hostname**
+
+You may need to pause your system portmapper so polyd gets the requests:
+
+sudo systemctl stop portmap bootparamd
+
 
 Turn on your Sun worksation and at the boot prom ok prompt, type: *boot net -s*
