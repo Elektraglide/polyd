@@ -1504,8 +1504,13 @@ int isinternal;
 			break;
 		case 1:
 			/* GetAttr */
-			/* TODO: deal with NFSERR_STALE */
 			fh = get_filehandle(request, filepath);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
+            
             if (lstat(filepath, &info) == 0)
 			{
  				fprintf(console, "nfsd: get_attr: %s  uid:%d perm:%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major(info.st_rdev),minor(info.st_rdev), (int)info.st_size);
@@ -1516,13 +1521,18 @@ int isinternal;
 			}
 			else
 			{
-				/* this should never happen.. */
+                fprintf(console, "nfsd: getattr:%s  %s\n", filepath, strerror(errno));
 				add_uint(&reply, NFSERR_NOENT);
 			}
 			break;
 		case 2:
 			/* SetAttr */
 			fh = get_filehandle(request, filepath);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
 			get_sattr(request, &reqinfo);
 			if (reqinfo.st_mode != 0xffff)
 				chmod(filepath, reqinfo.st_mode);
@@ -1549,7 +1559,13 @@ int isinternal;
 			/* Lookup */
 			fh = get_filehandle(request, filepath);
 			path = get_string(request);
-			if (path[0] != '/') strcat(filepath, "/");
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
+
+            if (path[0] != '/') strcat(filepath, "/");
 			strcat(filepath, path);
 			if (lstat(filepath, &info) == 0)
 			{
@@ -1564,7 +1580,7 @@ int isinternal;
 			}
 			else
 			{
-				fprintf(console, "nfsd: lookup:%s  NFSERR_NOENT  path:'%s'\n", filepath, path);
+                fprintf(console, "nfsd: lookup:%s path:'%s': %s\n", filepath, path, strerror(errno));
 				add_uint(&reply, NFSERR_NOENT);	/* no such file */
 				add_uint(&reply, 0);
 			}
@@ -1572,6 +1588,11 @@ int isinternal;
 		case 5:
 			/* ReadLink */
             fh = get_filehandle(request, filepathfrom);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
             n = readlink(filepathfrom, filepath, sizeof(filepath));
             if (n > 0)
             {
@@ -1594,6 +1615,11 @@ int isinternal;
 		case 6:
 			/* Read */
 			fh = get_filehandle(request, filepath);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
 			offset = get_uint(request);
 			count = get_uint(request);
 			n = get_uint(request);
@@ -1631,6 +1657,11 @@ int isinternal;
 		case 8:
 			/* Write */
 			fh = get_filehandle(request, filepath);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
 			n = get_uint(request);
 			offset = get_uint(request);
 			n = get_uint(request);
@@ -1712,6 +1743,11 @@ int isinternal;
 		case 10:
 			/* Remove */
 			fh = get_filehandle(request, filepath);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
 			path = get_string(request);
 			if (path[0] != '/') strcat(filepath, "/");
 			strcat(filepath, path);
@@ -1728,6 +1764,11 @@ int isinternal;
 		case 11:
 			/* Rename */
             fh = get_filehandle(request, filepathfrom);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
             path = get_string(request);
             strcat(filepathfrom, "/");
             strcat(filepathfrom, path);
@@ -1750,6 +1791,11 @@ int isinternal;
         case 12:
             /* Link */
             fh = get_filehandle(request, filepathfrom);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
             fh2 = get_filehandle(request, filepath);
             path = get_string(request);
             strcat(filepath, "/");
@@ -1772,6 +1818,11 @@ int isinternal;
 		case 13:
 			/* SymLink */
             fh = get_filehandle(request, filepathfrom);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
             strcpy(filepath, filepathfrom);
             path = get_string(request);
             strcat(filepathfrom, "/");
@@ -1798,6 +1849,11 @@ int isinternal;
 		case 14:
 			/* MkDir */
 			fh = get_filehandle(request, filepath);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
 			path = get_string(request);
 			strcat(filepath, "/");
 			strcat(filepath, path);
@@ -1821,6 +1877,11 @@ int isinternal;
 		case 16:
 			/* ReadDir */
 			fh = get_filehandle(request, filepath);
+            if (!fh)
+            {
+                add_uint(&reply, NFSERR_STALE);
+                break;
+            }
 			offset = get_uint(request);
 			count = get_uint(request);
 			/* fprintf(console, "nfsd: READDIR: offset = %d count = %d\n", offset, count); */
