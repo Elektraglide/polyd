@@ -1037,7 +1037,7 @@ int verbose;
 		{
 			if (strcmp(bp_machinename, name) && strcmp(bp_addr, name))
 			{
-				fprintf(console, "get_credentials: REJECT unknown machinename\n");
+				fprintf(console, "get_credentials: REJECT unknown machinename: '%s'\n", name);
 				return -1;
 			}
 		}
