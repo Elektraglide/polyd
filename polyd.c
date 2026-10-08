@@ -1193,6 +1193,47 @@ char *path;
 
 }
 
+int make_rootrelativepath(fh, rootrelative)
+struct filehandle *fh;
+char *rootrelative;
+{
+    char *ptr;
+    int n, pcount;
+    
+    decodepath(fh->pathtokens, rootrelative);
+
+    /* count components */
+    ptr = rootrelative;
+    n = 0;
+    while(ptr)
+    {
+        ptr = strchr(ptr, '/');
+        if (ptr)
+        {
+            ptr++;
+            if (strcmp(ptr, ".") && strcmp(ptr, ".."))
+                n++;
+        }
+    }
+
+    /* file system root has (fh->fsid & 15) components */
+    pcount = n - (fh->fsid & 15);
+    
+    /* generate relative path to root of filesystem */
+    rootrelative[0] = '\0';
+    while(--pcount > 0)
+    {
+        strcat(rootrelative, "../");
+    }
+
+    /* does not need last trailing '/' */
+    ptr = strrchr(rootrelative, '/');
+    if(ptr)
+        *ptr = '\0';
+
+    return n;
+}
+
 int make_filehandle(path, info, handle)
 char *path;
 struct stat *info;
@@ -1219,9 +1260,17 @@ struct filehandle *handle;
 	while(handle->pathtokens[n])
 	{
 		result ^= handle->pathtokens[n];
+        result *= 0x01000193;
 		n++;
 	}
-
+    
+    if (n > 15)
+        fprintf(console, "make_fsid: root path too long\n");
+    
+    /* store how many path components there are to the root in lower 4bits */
+    result &= 0xfffffff0;
+    result |= n;
+    
 	return result;
 }
 
@@ -1524,10 +1573,20 @@ int isinternal;
             n = readlink(filepathfrom, filepath, sizeof(filepath));
             if (n > 0)
             {
+                char rootrelative[1024];
+
+                rootrelative[0] = '\0';
+
+                /* if absolute, make a relative path */
+                if (filepath[0] == '/')
+                    make_rootrelativepath(fh, rootrelative);
+
                 filepath[n++]  ='\0';
+                strcat(rootrelative, filepath);
+                
                 add_uint(&reply, NFS_OK);
-                add_string(&reply, filepath, n);
-                fprintf(console, "nfsd: readlink:%s =>'%s'\n", filepathfrom, filepath);
+                add_string(&reply, rootrelative, strlen(rootrelative));
+                fprintf(console, "nfsd: readlink:%s =>'%s'\n", filepathfrom, rootrelative);
             }
 			break;
 		case 6:
