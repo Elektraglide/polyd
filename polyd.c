@@ -1069,14 +1069,15 @@ struct filehandle *get_filehandle(request, filepath)
 struct conn *request;
 char *filepath;
 {
-	struct filehandle *ptr = (struct filehandle *)(request->buffer + request->crp);
+	struct filehandle *fh = (struct filehandle *)(request->buffer + request->crp);
 	request->crp += sizeof(struct filehandle);
 
-	/* TODO: if we have flushed the stringcache, return NFS3ERR_STALE */
 	if (filepath)
-		decodepath(ptr->pathtokens, filepath);
+    {
+        decodepath(fh->pathtokens, filepath);
+    }
 
-	return ptr;
+    return fh;
 }
 
 char *get_string(request)
@@ -1246,8 +1247,9 @@ struct filehandle *handle;
 	handle->inode = info->st_ino;
 	handle->dev = info->st_dev;
 	handle->fsid = 0;
-	encodepath(path, handle->pathtokens);
-	
+
+    encodepath(path, handle->pathtokens);
+    
 	return 0;
 }
 
