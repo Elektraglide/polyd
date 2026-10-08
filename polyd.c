@@ -750,33 +750,13 @@ unsigned int hostperms;
 	return mode;
 }
 
-void get_majorminor(devnum, major,minor)
-unsigned int devnum;
-unsigned int *major;
-unsigned int *minor;
-{
-#if defined(__APPLE__)
-    /* APPLE 8:24 */
-    *major = (devnum>>24) & 0xff;
-    *minor = devnum & 0xffff;
-#elif defined(__linux__)
-    /* LINUX 12:20 */
-    *major = (devnum>>20) & 0xfff;
-    *minor = devnum & 0xffff;
-#elif
-    /* 8:8 */
-    *major = (devnum>>8) & 0xff;
-    *minor = devnum & 0xff;
-#endif
-}
-
 void add_fattr(reply, info, fsid)
 struct response *reply;
 struct stat *info;
 int fsid;
 {
 	unsigned int ftype, nfsperms;
-	unsigned int major,minor;
+	unsigned int devmajor,devminor;
 	
 	ftype = host2nfstype(info->st_perm);
 	add_uint(reply, ftype);
@@ -792,9 +772,9 @@ int fsid;
 	add_uint(reply, (unsigned int)info->st_size);
 	add_uint(reply, BLOCK_SIZE);
 	
-	
-	get_majorminor(info->st_rdev, &major, &minor);
-	add_uint(reply, (major<<8) | minor);
+    devmajor = major(info->st_rdev);
+    devminor = minor(info->st_rdev);
+	add_uint(reply, (devmajor<<8) | devminor);  /* SunOS is 8:8 always */
 
 	if ((info->st_mode & S_IFDIR) == S_IFDIR)
 	{
@@ -1477,9 +1457,7 @@ int isinternal;
 			fh = get_filehandle(request, filepath);
             if (lstat(filepath, &info) == 0)
 			{
-				unsigned int major,minor;
-				get_majorminor(info.st_rdev, &major, &minor);
-				fprintf(console, "nfsd: get_attr: %s  uid:%d perm:%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major,minor, (int)info.st_size);
+ 				fprintf(console, "nfsd: get_attr: %s  uid:%d perm:%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major(info.st_rdev),minor(info.st_rdev), (int)info.st_size);
 				info.st_uid = uid;
 				//info.st_gid = 0;
 				add_uint(&reply, NFS_OK);
@@ -1524,9 +1502,7 @@ int isinternal;
 			strcat(filepath, path);
 			if (lstat(filepath, &info) == 0)
 			{
-				unsigned int major,minor;
-				get_majorminor(info.st_rdev, &major, &minor);
-				fprintf(console, "nfsd: lookup:%s uid:%d perms=%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major,minor, (int)info.st_size);
+				fprintf(console, "nfsd: lookup:%s uid:%d perms=%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major(info.st_rdev),minor(info.st_rdev), (int)info.st_size);
 				info.st_uid = uid;
 				//info.st_gid = 0;
 				make_filehandle(filepath, &info, &handle);
