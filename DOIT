@@ -1,0 +1,2 @@
+sudo ./polyd en0 -hostname cruella -addr 192.168.1.71 -mac 08:00:20:7f:00:00 -fs /Users/Shared/export/root/cruella -swap  /Users/Shared/export/swap/cruella -dump  /Users/Shared/export/dump    
+

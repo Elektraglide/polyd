@@ -200,7 +200,7 @@ struct filehandle {
 	unsigned int inode;
 	unsigned short dev;
 	unsigned short fsid;
-	unsigned char pathtokens[20];	/* 32 bytes total */
+	unsigned short pathtokens[10];	/* 32 bytes total */
 };
 
 /* request and response state */
@@ -304,75 +304,96 @@ int len;
 }
 #endif
 
-/* cache of file handle entries */
-unsigned int filetablemask = 0;
-char filetable[32][256];
-
+/* packed pool of unique strings */
 int stringcachelen = 0;
-char *stringcache;
+char *stringcache = NULL;
 
-short numsubpaths = 0;
-int subpathindex[256];
-
+/* cache of refs to filepath components */
+int subpaths_len = 0;
+int *subpaths = NULL;
+int subpaths_count = 1;
 int add_subpath(path)
 char *path;
 {
 	short n;
 	char *ptr;
 	
-	/* init */
-	if (stringcachelen == 0)
-	{
-		stringcachelen = 2048;
-		stringcache = malloc(stringcachelen);
+    n = strlen(path) + 1;
 
-		/* subpath index 0 terminates run */
-		numsubpaths = 1;
-		subpathindex[0] = 0;
-	}
-	
-	/* find it */
-	for (n=0; n<numsubpaths; n++)
+    /* do we need to expand subpaths[]? */
+    if (subpaths == NULL)
+    {
+        subpaths_len = 1024;
+        subpaths = (int *)malloc(subpaths_len * sizeof(int));
+        subpaths_count = 1;
+        subpaths[0] = 0;
+    }
+    else
+    if (subpaths_count >= subpaths_len)
+    {
+        fprintf(console, "nfsd: add_subpath: EXHAUSTED subpaths[%d]\n", subpaths_count);
+        subpaths_len += subpaths_len / 2;
+        subpaths = (int *)realloc(subpaths, subpaths_len * sizeof(int));
+    }
+
+    /* do we need to expand string cache? */
+    if (stringcache == NULL)
+    {
+        stringcachelen = 2048;
+        stringcache = malloc(stringcachelen);
+    }
+    else
+    {
+        /* find last byte used */
+        ptr = stringcache + subpaths[subpaths_count-1];
+        ptr += strlen(ptr) + 1;
+
+        if (ptr - stringcache + n > stringcachelen)
+        {
+            fprintf(console, "nfsd: add_subpath: EXHAUSTED stringcache[%d]\n", stringcachelen);
+            stringcachelen += stringcachelen / 2;
+            stringcache = realloc(stringcache, stringcachelen);
+        }
+    }
+    
+    /* find it */
+	for (n=0; n<subpaths_count; n++)
 	{
-		if (!strcmp(path, stringcache + subpathindex[n]))
+		if (!strcmp(path, stringcache + subpaths[n]))
 		{
 			return n;
 		}
 	}
 
-	/* append it  */
-	ptr = stringcache + subpathindex[numsubpaths-1];
+    /* append it */
+	ptr = stringcache + subpaths[subpaths_count-1];
 	ptr += strlen(ptr) + 1;
-	
-	/* do we need to expand */
-	n = strlen(path) + 1;
-	if (ptr - stringcache + n > stringcachelen)
-	{
-		stringcachelen += stringcachelen / 2;
-		stringcache = realloc(stringcache, stringcachelen);
-		ptr = stringcache + subpathindex[numsubpaths-1];
-		ptr += strlen(ptr) + 1;
-	}
 	strcpy(ptr, path);
-	subpathindex[numsubpaths++] = ptr - stringcache;
-	
-	return numsubpaths - 1;
+    
+	subpaths[subpaths_count++] = ptr - stringcache;
+
+	return subpaths_count - 1;
 }
 
 int encodepath(filepath, encoded)
 char *filepath;
-unsigned char *encoded;
+unsigned short *encoded;
 {
 	char working[1024];
 	char *ptr;
 	int n;
+    short i;
 	
 	n = 0;
 	strcpy(working, filepath);
 	ptr = strtok(working, "/");
 	while(ptr)
 	{
-		encoded[n++] = add_subpath(ptr);
+        i = add_subpath(ptr);
+        if (i < 0)
+            return -1;
+
+        encoded[n++] = i;
 		ptr = strtok(NULL,  "/");
 	}
 	
@@ -380,7 +401,7 @@ unsigned char *encoded;
 }
 
 void decodepath(encoded, path)
-unsigned char *encoded;
+unsigned short *encoded;
 char *path;
 {
 	int n = 0;
@@ -393,7 +414,7 @@ char *path;
 	while(encoded[n])
 	{
 		strcat(path, "/");
-		strcat(path, stringcache + subpathindex[encoded[n]]);
+		strcat(path, stringcache + subpaths[encoded[n]]);
 		n++;
 	}
 }
@@ -1454,7 +1475,7 @@ int isinternal;
 			/* GetAttr */
 			/* TODO: deal with NFSERR_STALE */
 			fh = get_filehandle(request, filepath);
-			if (stat(filepath, &info) == 0)
+            if (lstat(filepath, &info) == 0)
 			{
 				unsigned int major,minor;
 				get_majorminor(info.st_rdev, &major, &minor);
@@ -1501,7 +1522,7 @@ int isinternal;
 			path = get_string(request);
 			if (path[0] != '/') strcat(filepath, "/");
 			strcat(filepath, path);
-			if (stat(filepath, &info) == 0)
+			if (lstat(filepath, &info) == 0)
 			{
 				unsigned int major,minor;
 				get_majorminor(info.st_rdev, &major, &minor);
