@@ -17,11 +17,23 @@ where "en0" is the network interface you are using.
 - -swap XXX path to contiguous swap file at least the size of the RAM you have
 - -dump XXX path to place to dump memory
 
-**Note that -fs and -swap filepaths need to end in the hostname**
+**Note that -fs and -swap filepaths need to end with the hostname you are using**
 
 You may need to pause your system portmapper so polyd gets the requests:
 
 sudo systemctl stop portmap bootparamd
 
+# Installing
+- Get a SunOS .iso and unpack it onto your host computer.  Inside the unpacked files you need to locate and copy the minimal root Unix install to boot - from which you can do a full install.  It is named 'miniroot' and on *SunOS4.1.4* it is located in:
 
-Turn on your Sun worksation and at the boot prom ok prompt, type: *boot net -s*
+**EXEC / KVM / SUN4C_SUNOS_4_1_1 / MINIROOT_SUN4C**
+
+This single file is actually an archive of a filesystem that needs unpacking to your '-fs' path.
+
+- Once unpacked, copy the top level file 'boot.sun4c' to your '-base' path so it can be served by the tftpd. Rename it to:
+
+  C0A80147.SUN4C    (your '-addr' you will be using but in hexadecimal, and ALL CAPS)
+
+- Turn on your Sun worksation and at the boot prom ok prompt, type: 
+
+*boot net -s*
