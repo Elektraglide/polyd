@@ -35,6 +35,10 @@
 
 #define ONLY_MTIME  /* does not have atimne or ctime */
 
+#define st_rdev st_size		/* stored in st_size for devices */
+#define minor(A) ((A)      & 0xff)
+#define major(A) ((A >> 8) & 0xff)
+
 struct sir sirbuf;
 
 #else
@@ -45,7 +49,7 @@ struct sir sirbuf;
 #include <stdlib.h>
 
 #define in_sockaddr sockaddr_in
-#define st_perm st_mode
+#define st_perm st_mode                  /* Uniflex stores perms seperately */
 #define S_IOREAD         S_IROTH         /* backward compatability */
 #define S_IOWRITE        S_IWOTH         /* backward compatability */
 #define S_IOEXEC         S_IXOTH         /* backward compatability */
@@ -237,12 +241,12 @@ struct response {
 
 FILE *console;
 
-uint8_t host_mac[6];
+unsigned char host_mac[6];
 struct in_addr host_assigned;
 char host_name[256];
 
 /* cmdline args:  nfsd -base /Users/dodah -machinename sparc2 -mac XX:XX:XX:XX:XX:XX -addr 192.168.1.71 -fs /Users/Shared/export/root -swap /Users/Shared/export/swap */
-uint8_t rarp_machinemac[6];
+unsigned char rarp_machinemac[6];
 char tftp_base[256];
 char bp_machinename[256];
 char bp_addr[64];
@@ -252,6 +256,22 @@ char bp_dump[256];
 
 #ifdef TEK4404
 /* missing CRT */
+
+int gethostname(host_name, len)
+char *host_name;
+int len;
+{
+	strncpy(host_name, nget_str("my_name"), len);
+	return 0;
+}
+
+int lstat(fd, info)
+int fd;
+struct stat *info;
+{
+	return stat(fd, info);
+}
+
 int mkdir(path, mode)
 char *path;
 unsigned int mode;
@@ -653,24 +673,25 @@ unsigned int nfsmode;
 	return perms;
 }
 
-unsigned int host2nfsmode(hostperms)
+unsigned int host2nfsmode(hostmode,hostperms)
+unsigned int hostmode;
 unsigned int hostperms;
 {
 	unsigned int nfsperms = 0;
 
-	if ((hostperms & S_ISUID) == S_ISUID)
+	if ((hostmode & S_ISUID) == S_ISUID)
 		nfsperms |= SUID;
 
-	if ((hostperms & S_IFDIR) == S_IFDIR)
+	if ((hostmode & S_IFMT) == S_IFDIR)
 		nfsperms |= DIR_NFS;
-	if ((hostperms & S_IFREG) == S_IFREG)
+	if ((hostmode & S_IFMT) == S_IFREG)
 		nfsperms |= REG;
-	if ((hostperms & S_IFCHR) == S_IFCHR)
+	if ((hostmode & S_IFMT) == S_IFCHR)
 		nfsperms |= CHR;
-	if ((hostperms & S_IFBLK) == S_IFBLK)
+	if ((hostmode & S_IFMT) == S_IFBLK)
 		nfsperms |= BLK;
 #ifndef TEK4404
-	if ((hostperms & S_IFLNK) == S_IFLNK)
+	if ((hostmode & S_IFMT) == S_IFLNK)
 		nfsperms |= LNK;
 #endif
 
@@ -686,7 +707,7 @@ unsigned int hostperms;
 		nfsperms |= WOTH;
 	if (hostperms & S_IOEXEC)
 		nfsperms |= XOTH;
-#ifndef TEK4404
+#ifndef NO_GROUPS
 	if (hostperms & S_IRGRP)
 		nfsperms |= RGRP;
 	if (hostperms & S_IWGRP)
@@ -698,38 +719,40 @@ unsigned int hostperms;
 	return nfsperms;
 }
 
-unsigned int host2nfstype(hostperms)
-unsigned int hostperms;
+unsigned int host2nfstype(hostmode)
+unsigned int hostmode;
 {
 	unsigned int ftype = 0;
 
-	if ((hostperms & S_IFDIR) == S_IFDIR)
+	if ((hostmode & S_IFMT) == S_IFDIR)
 		ftype = NFDIR;
-	if ((hostperms & S_IFREG) == S_IFREG)
+	if ((hostmode & S_IFMT) == S_IFREG)
 		ftype = NFREG;
-	if ((hostperms & S_IFCHR) == S_IFCHR)
+	if ((hostmode & S_IFMT) == S_IFCHR)
 		ftype = NFCHR;
-	if ((hostperms & S_IFBLK) == S_IFBLK)
+	if ((hostmode & S_IFMT) == S_IFBLK)
 		ftype = NFBLK;
 #ifndef TEK4404
-	if ((hostperms& S_IFLNK) == S_IFLNK)
+	if ((hostmode & S_IFMT) == S_IFLNK)
 		ftype = NFLNK;
 #endif
+
 	return ftype;
 }
 
-char *hostmode2ascii(hostperms)
+char *hostmode2ascii(hostmode,hostperms)
+unsigned int hostmode;
 unsigned int hostperms;
 {
 	static char mode[16];
 
 	mode[0] = ((hostperms & S_ISUID) == S_ISUID) ? 'S' : '-';
 	
-	mode[1] = ((hostperms & S_IFDIR) == S_IFDIR) ? 'D' : 'F';
-	mode[1] = ((hostperms & S_IFCHR) == S_IFCHR) ? 'C' : mode[1];
-	mode[1] = ((hostperms & S_IFBLK) == S_IFBLK) ? 'B' : mode[1];
+	mode[1] = ((hostmode & S_IFMT) == S_IFDIR) ? 'D' : 'F';
+	mode[1] = ((hostmode & S_IFMT) == S_IFCHR) ? 'C' : mode[1];
+	mode[1] = ((hostmode & S_IFMT) == S_IFBLK) ? 'B' : mode[1];
 #ifndef TEK4404
-	mode[1] = ((hostperms & S_IFLNK) == S_IFLNK) ? 'L' : mode[1];
+	mode[1] = ((hostmode & S_IFMT) == S_IFLNK) ? 'L' : mode[1];
 #endif
 	mode[2] = '/';
 	
@@ -737,6 +760,12 @@ unsigned int hostperms;
 	mode[4] = ((hostperms & S_IWRITE) == S_IWRITE) ? 'w' : '-';
 	mode[5] = ((hostperms & S_IEXEC) == S_IEXEC)   ? 'x' : '-';
 
+#ifdef NO_GROUPS
+	mode[6] = ((hostperms & S_IOREAD) == S_IOREAD) ? 'r' : '-';
+	mode[7] = ((hostperms & S_IOWRITE) == S_IOWRITE) ? 'w' : '-';
+	mode[8] = ((hostperms & S_IOEXEC) == S_IOEXEC) ? 'x' : '-';
+	mode[9] = '\0';
+#else
 	mode[6] = ((hostperms & S_IRGRP) == S_IRGRP) ? 'r' : '-';
 	mode[7] = ((hostperms & S_IWGRP) == S_IWGRP) ? 'w' : '-';
 	mode[8] = ((hostperms & S_IXGRP) == S_IXGRP) ? 'x' : '-';
@@ -744,10 +773,33 @@ unsigned int hostperms;
 	mode[9] = ((hostperms & S_IOREAD) == S_IOREAD)   ? 'r' : '-';
 	mode[10] = ((hostperms & S_IOWRITE) == S_IOWRITE) ? 'w' : '-';
 	mode[11] = ((hostperms & S_IOEXEC) == S_IOEXEC)   ? 'x' : '-';
-
 	mode[12] = '\0';
+#endif
 
 	return mode;
+}
+
+void get_majorminor(info, devmajor, devminor)
+struct stat *info;
+unsigned int* devmajor;
+unsigned int* devminor;
+{
+#ifdef TEK4404
+	/* Uniflex returns major:minor in st_size field.. */
+	if (((info->st_mode & S_IFCHR) == S_IFCHR) || ((info->st_mode & S_IFBLK) == S_IFBLK))
+	{
+		*devmajor = major(info->st_size);
+		*devminor = minor(info->st_size);
+	}
+	else
+	{
+		*devmajor = 0;
+		*devminor = 0;
+	}
+#else
+	*devmajor = major(info->st_rdev);
+	*devminor = minor(info->st_rdev);
+#endif
 }
 
 void add_fattr(reply, info, fsid)
@@ -758,9 +810,9 @@ int fsid;
 	unsigned int ftype, nfsperms;
 	unsigned int devmajor,devminor;
 	
-	ftype = host2nfstype(info->st_perm);
+	ftype = host2nfstype(info->st_mode);
 	add_uint(reply, ftype);
-	nfsperms = host2nfsmode(info->st_perm);
+	nfsperms = host2nfsmode(info->st_mode, info->st_perm);
 	add_uint(reply, nfsperms);
 	add_uint(reply, info->st_nlink);
 	add_uint(reply, info->st_uid);
@@ -771,9 +823,8 @@ int fsid;
 #endif
 	add_uint(reply, (unsigned int)info->st_size);
 	add_uint(reply, BLOCK_SIZE);
-	
-    devmajor = major(info->st_rdev);
-    devminor = minor(info->st_rdev);
+
+	get_majorminor(info, &devmajor, &devminor);
 	add_uint(reply, (devmajor<<8) | devminor);  /* SunOS is 8:8 always */
 
 	if ((info->st_mode & S_IFDIR) == S_IFDIR)
@@ -807,7 +858,7 @@ int fsid;
 	if ((info->st_mode & S_IFDIR) == S_IFDIR)
 	{
 		add_uint(reply, NFDIR);
-		add_uint(reply, nfsperms);			/* info->st_perm */
+		add_uint(reply, nfsperms);
 		add_uint(reply, info->st_nlink);
 		add_uint(reply, info->st_uid);
 #ifdef NO_GROUPS
@@ -901,7 +952,7 @@ int prognum;
 	struct rpcheader *header = (struct rpcheader *)request->buffer;
 	struct response reply;
 
-/*	fprintf(console,"RPC: xid:%8.8x rpcvers:%d vers:%d prog:%d proc:%d msg:%d\015\012", ntohl(header->xid), ntohl(header->rpcvers), ntohl(header->vers), ntohl(header->prog), ntohl(header->proc), ntohl(header->msg_type));
+/*	fprintf(console,"RPC: %s: xid:%8.8x rpcvers:%d vers:%d prog:%d proc:%d msg:%d\n", inet_ntoa((request->from.sin_addr)), ntohl(header->xid), ntohl(header->rpcvers), ntohl(header->vers), ntohl(header->prog), ntohl(header->proc), ntohl(header->msg_type));
 */
 	reply.cwp = 0;
 	if (ntohl(header->msg_type) != CALL)
@@ -1282,19 +1333,22 @@ int port;
 {
 	struct in_sockaddr serv_addr;
 	int sock,n;
-		
+	int reusesize,reuse = 1;
+
 	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock < 0) {
 		fprintf(console, "socket: %s: %s\n",daemonname, strerror(errno));
 		return -1;
 	}
 
-	int reuse = 1;
-	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse));
+#ifdef TEK4404
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, &reusesize);
+#else
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, sizeof(reusesize));
+#endif
 
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = host_assigned.s_addr ;		// INADDR_ANY;
-	//serv_addr.sin_addr.s_addr = INADDR_ANY;
+	serv_addr.sin_addr.s_addr = host_assigned.s_addr ;		/* or INADDR_ANY; */
 	serv_addr.sin_port = htons(port);
 	n = bind(sock, (struct sockaddr *) & serv_addr, sizeof serv_addr);
 	if (n < 0) {
@@ -1343,15 +1397,16 @@ int isinternal;
 			if (stat(path, &info) == 0)
 			{
 				info.st_uid = uid;
+#ifndef NO_GROUPS
 				//info.st_gid = 0;
-			
+#endif			
 				if ((info.st_mode & S_IFDIR) == S_IFDIR)
 				{
 					make_filehandle(path, &info, &handle);
 					handle.fsid = make_fsid(&handle);
 					add_uint(&reply, NFS_OK);
 					add_filehandle(&reply, &handle);
-					fprintf(console, "mountd: mount Path = %s for client@%s\n", path,  inet_ntoa((request->from.sin_addr)) );
+					fprintf(console, "mountd: mount Path = %s for client@%s\n", path, inet_ntoa((request->from.sin_addr)) );
 					if (header->vers == htonl(3))
 					{
 						add_uint(&reply, 1);	/* maxlen */
@@ -1513,15 +1568,19 @@ int isinternal;
             
             if (lstat(filepath, &info) == 0)
 			{
- 				fprintf(console, "nfsd: get_attr: %s  uid:%d perm:%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major(info.st_rdev),minor(info.st_rdev), (int)info.st_size);
+				unsigned int devmajor,devminor;
+				get_majorminor(&info, &devmajor, &devminor);
+ 				fprintf(console, "nfsd: get_attr:'%s' uid:%d perm:%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode, info.st_perm), devmajor,devminor, (int)info.st_size);
 				info.st_uid = uid;
+#ifndef NO_GROUPS
 				//info.st_gid = 0;
+#endif
 				add_uint(&reply, NFS_OK);
 				add_fattr(&reply, &info, fh->fsid);
 			}
 			else
 			{
-                fprintf(console, "nfsd: getattr:%s  %s\n", filepath, strerror(errno));
+                fprintf(console, "nfsd: getattr:%s: %s\n", filepath, strerror(errno));
 				add_uint(&reply, NFSERR_NOENT);
 			}
 			break;
@@ -1569,9 +1628,13 @@ int isinternal;
 			strcat(filepath, path);
 			if (lstat(filepath, &info) == 0)
 			{
-				fprintf(console, "nfsd: lookup:%s uid:%d perms=%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode), major(info.st_rdev),minor(info.st_rdev), (int)info.st_size);
+				unsigned int devmajor, devminor;
+				get_majorminor(&info, &devmajor, &devminor);
+				/*fprintf(console, "nfsd: lookup:%s uid:%d perms=%s dev(%d:%d) size:%d\n", filepath, info.st_uid, hostmode2ascii(info.st_mode, info.st_perm), devmajor,devminor, (int)info.st_size);*/
 				info.st_uid = uid;
+#ifndef NO_GROUPS
 				//info.st_gid = 0;
+#endif
 				make_filehandle(filepath, &info, &handle);
 				handle.fsid = fh->fsid;
 				add_uint(&reply, NFS_OK);
@@ -1580,14 +1643,18 @@ int isinternal;
 			}
 			else
 			{
-                fprintf(console, "nfsd: lookup:%s path:'%s': %s\n", filepath, path, strerror(errno));
+                /* fprintf(console, "nfsd: lookup:%s path:'%s': %s\n", filepath, path, strerror(errno)); */
 				add_uint(&reply, NFSERR_NOENT);	/* no such file */
 				add_uint(&reply, 0);
 			}
 			break;
 		case 5:
 			/* ReadLink */
-            fh = get_filehandle(request, filepathfrom);
+#ifdef TEK4404
+			/* FIXME: implement readlink() */
+			add_uint(&reply, NFSERR_IO);
+#else
+			fh = get_filehandle(request, filepathfrom);
             if (!fh)
             {
                 add_uint(&reply, NFSERR_STALE);
@@ -1611,6 +1678,7 @@ int isinternal;
                 add_string(&reply, rootrelative, strlen(rootrelative));
                 fprintf(console, "nfsd: readlink:%s =>'%s'\n", filepathfrom, rootrelative);
             }
+#endif
 			break;
 		case 6:
 			/* Read */
@@ -1626,7 +1694,9 @@ int isinternal;
 			if (stat(filepath, &info) == 0)
 			{
 				info.st_uid = uid;
+#ifndef NO_GROUPS
 				//info.st_gid = 0;
+#endif
 				if ((info.st_mode & S_IFREG) == S_IFREG)
 				{
 					if (info.st_perm & S_IREAD)
@@ -1701,7 +1771,7 @@ int isinternal;
 				}
 				else
 				{
-					fprintf(console, "  write NFSERR_ISDIR: %s: mode:%s\n", filepath, hostmode2ascii(info.st_mode));
+					fprintf(console, "  write NFSERR_ISDIR: %s: mode:%s\n", filepath, hostmode2ascii(info.st_mode, info.st_perm));
 					add_uint(&reply, NFSERR_ISDIR);
 				}
 			}
@@ -1733,7 +1803,7 @@ int isinternal;
 				add_uint(&reply, NFS_OK);
 				add_filehandle(&reply, &handle);
 				add_fattr(&reply, &info, fh->fsid);
-				/*fprintf(console, "nfsd: create = %s perm:%s\n", filepath, hostmode2ascii(info.st_mode));*/
+				/*fprintf(console, "nfsd: create = %s perm:%s\n", filepath, hostmode2ascii(info.st_mode, info.st_perm));*/
 			}
 			else
 			{
@@ -1817,6 +1887,9 @@ int isinternal;
             break;
 		case 13:
 			/* SymLink */
+#ifdef TEK4404
+            add_uint(&reply, NFSERR_IO);
+#else
             fh = get_filehandle(request, filepathfrom);
             if (!fh)
             {
@@ -1845,6 +1918,7 @@ int isinternal;
             {
                 add_uint(&reply, errno);
             }
+#endif
 			break;
 		case 14:
 			/* MkDir */
@@ -1922,7 +1996,7 @@ int isinternal;
 						add_uint(&reply, n);	/* fileid */
 						add_string(&reply, dir->d_name, len);
 						add_uint(&reply, n);
-						fprintf(console, "nfsd: READDIR: %3d: cwp(%d) %s\n", n, reply.cwp, dir->d_name);
+						/* fprintf(console, "nfsd: READDIR: %3d: cwp(%d) %s\n", n, reply.cwp, dir->d_name);*/
 					}
 				}
 				closedir(d);
@@ -1932,7 +2006,7 @@ int isinternal;
 
 				/* complete or run out of room? */
 				add_uint(&reply, (count) ? 1 : 0);
-				fprintf(console, "nfsd: READDIR: eof(%d): cwp(%d)\n", (count) ? 1 : 0, reply.cwp);
+				/* fprintf(console, "nfsd: READDIR: eof(%d): cwp(%d)\n", (count) ? 1 : 0, reply.cwp); */
 			}
 			break;
 		case 17:
@@ -2023,14 +2097,14 @@ int isinternal;
 			{
 				add_uint(&reply, NFS_OK);
 				add_fattr3(&reply, &info, fh->fsid);
-				/* fprintf(console, "nfsd: GETATTR3: %s  perm:%s\n", filepath, hostmode2ascii(info.st_mode)); */
+				/* fprintf(console, "nfsd: GETATTR3: %s  perm:%s\n", filepath, hostmode2ascii(info.st_mode, info.st_perm)); */
 			}
 			else
 			{
 				/* this should never happen.. */
 				add_uint(&reply, NFS3ERR_BADHANDLE);
 				add_uint(&reply, 0);
-				fprintf(console, "nfsd: GETATTR3: %s  perm:%s FAILED\n", filepath, hostmode2ascii(info.st_mode));
+				fprintf(console, "nfsd: GETATTR3: %s  perm:%s FAILED\n", filepath, hostmode2ascii(info.st_mode, info.st_perm));
 			}
 			break;
 		case 2:
@@ -2051,7 +2125,7 @@ int isinternal;
 			{
 				add_uint(&reply, NFS_OK);
 				add_wcc_data(&reply, &preinfo, &info, fh->fsid);
-				/* fprintf(console, "nfsd: SETATTR3 = %s mode=%s size=%d\n", filepath, hostmode2ascii(info.st_mode), info.st_size); */
+				/* fprintf(console, "nfsd: SETATTR3 = %s mode=%s size=%d\n", filepath, hostmode2ascii(info.st_mode, info.st_perm), info.st_size); */
 			}
 			else
 			{
@@ -2693,6 +2767,106 @@ int isinternal;
 	
 }
 
+/* portmapper is special and can invoke other progs */
+void portmapperprog(request)
+struct conn* request;
+{
+	struct rpcheader* header = (struct rpcheader*)request->buffer;
+	struct response reply;
+	unsigned int prog, vers, prot, port, registeredport;
+	unsigned int proc;
+	char* lomark, * himark;
+	int n;
+
+	/* expecting nullop credentials */
+	get_credentials(request, 0);
+	get_verifier(request);
+
+	reply.cwp = 0;
+	add_uint(&reply, ntohl(header->xid));
+	add_uint(&reply, REPLY);
+	add_uint(&reply, MSG_ACCEPTED);
+	add_uint(&reply, 0);		/* opaque_verf */
+	add_uint(&reply, 0);		/* opaque_verf size */
+
+	/* I dont understand why it does not need SUCCESS here.. */
+
+	switch (ntohl(header->proc))
+	{
+	default:
+	case 0:
+		add_uint(&reply, NFS_OK);
+		break;
+	case 3:
+		/* GetPort */
+		prog = get_uint(request);
+		vers = get_uint(request);
+		prot = get_uint(request);
+		port = get_uint(request);
+		registeredport = 0;
+		if (prot == IPPROTO_UDP)
+		{
+			if (prog == NFSD) registeredport = NFSD_PORT;
+			if (prog == MOUNTD) registeredport = MOUNTD_PORT;
+			if (prog == BOOTPARAMD) registeredport = BOOTPARAMD_PORT;
+			if (prog == LOCKD && vers == 4) registeredport = LOCKD_PORT;
+		}
+
+		if (registeredport)
+		{
+			add_uint(&reply, NFS_OK);
+			add_uint(&reply, registeredport);
+		}
+		else
+		{
+			add_uint(&reply, PROG_UNAVAIL);
+		}
+		fprintf(console, "portmapd: prog:%d vers:%d prot:%d => registeredport:%d\n", prog, vers, prot, registeredport);
+		break;
+
+	case 5:
+		/* Call-It */
+		lomark = request->buffer + request->crp;
+		prog = get_uint(request);
+		vers = get_uint(request);
+		proc = get_uint(request);
+		himark = request->buffer + request->crp;
+		fprintf(console, "portmapd: CALLIT: prog:%d vers:%d proc:%d \n", prog, vers, proc);
+
+		/* roll back buffer */
+		while (lomark < request->buffer + request->len)
+		{
+			*lomark++ = *himark++;
+		}
+
+		/* edit header */
+		request->crp = sizeof(struct rpcheader);
+		header->proc = ntohl(proc);
+
+		if (prog == MOUNTD) mountprog(request, NFS_TRUE);
+		if (prog == LOCKD) lockprog(request, NFS_TRUE);
+		if (prog == NFSD)
+		{
+			if (vers == 2)
+				nfsprog(request, NFS_TRUE);
+			if (vers == 3)
+				nfs3prog(request, NFS_TRUE);
+		}
+#ifdef POLYD
+		if (prog == BOOTPARAMD) bootparamprog(request, NFS_TRUE);
+#endif
+		return;
+	}
+
+	n = sendto(request->sock, reply.buffer, reply.cwp, 0, (struct sockaddr*)&request->from, sizeof(request->from));
+	if (n != reply.cwp)
+	{
+		fprintf(console, "portmapd: sendto: %s\n", strerror(errno));
+	}
+}
+
+#ifdef POLYD
+
 void bootparamprog(request,isinternal)
 struct conn *request;
 int isinternal;
@@ -2815,103 +2989,6 @@ int isinternal;
 	/*fprintf(console, "bootparamd: replied %d bytes\n", n);*/
 }
 
-/* portmapper is special and can invoke other progs */
-void portmapperprog(request)
-struct conn *request;
-{
-	struct rpcheader *header = (struct rpcheader *)request->buffer;
-	struct response reply;
-	unsigned int prog, vers, prot, port, registeredport;
-	unsigned int proc;
-	char *lomark,*himark;
-	int n;
-	
-	/* expecting nullop credentials */
-	get_credentials(request, 0);
-	get_verifier(request);
-	
-	reply.cwp = 0;
-	add_uint(&reply, ntohl(header->xid));
-	add_uint(&reply, REPLY);
-	add_uint(&reply, MSG_ACCEPTED);
-	add_uint(&reply, 0);		/* opaque_verf */
-	add_uint(&reply, 0);		/* opaque_verf size */
-
-	/* I dont understand why it does not need SUCCESS here.. */
-
-	switch(ntohl(header->proc))
-	{
-		default:
-		case 0:
-			add_uint(&reply, NFS_OK);
-			break;
-		case 3:
-			/* GetPort */
-			prog = get_uint(request);
-			vers = get_uint(request);
-			prot = get_uint(request);
-			port = get_uint(request);
-			registeredport = 0;
-			if (prot == IPPROTO_UDP)
-			{
-				if (prog == NFSD) registeredport = NFSD_PORT;
-				if (prog == MOUNTD) registeredport = MOUNTD_PORT;
-				if (prog == BOOTPARAMD) registeredport = BOOTPARAMD_PORT;
-				if (prog == LOCKD && vers == 4) registeredport = LOCKD_PORT;
-			}
-
-			if (registeredport)
-			{
-				add_uint(&reply, NFS_OK);
-				add_uint(&reply, registeredport);
-			}
-			else
-			{
-				add_uint(&reply, PROG_UNAVAIL);
-			}
-			fprintf(console, "portmapd: prog:%d vers:%d prot:%d => registeredport:%d\n", prog, vers, prot, registeredport);
-			break;
-
-		case 5:
-			/* Call-It */
-			lomark = request->buffer + request->crp;
-			prog = get_uint(request);
-			vers = get_uint(request);
-			proc = get_uint(request);
-			himark = request->buffer + request->crp;
-			fprintf(console, "portmapd: CALLIT: prog:%d vers:%d proc:%d \n", prog, vers, proc);
-
-			/* roll back buffer */
-			while(lomark < request->buffer+request->len)
-			{
-				*lomark++ = *himark++;
-			}
-
-			/* edit header */
-			request->crp = sizeof(struct rpcheader);
-			header->proc = ntohl(proc);
-			
-			if (prog == MOUNTD) mountprog(request, NFS_TRUE);
-			if (prog == LOCKD) lockprog(request, NFS_TRUE);
-			if (prog == BOOTPARAMD) bootparamprog(request, NFS_TRUE);
-			if (prog == NFSD)
-			{
-				if (vers == 2)
-					nfsprog(request, NFS_TRUE);
-				if (vers == 3)
-					nfs3prog(request, NFS_TRUE);
-			}
-			return;
-	}
-
-	n = sendto(request->sock, reply.buffer, reply.cwp, 0, (struct sockaddr *) &request->from, sizeof(request->from));
-	if(n != reply.cwp)
-	{
-			fprintf(console, "portmapd: sendto: %s\n",strerror(errno));
-	}
-}
-
-#ifdef POLYD
 /* https://www.rfc-editor.org/info/rfc1350/ */
 #define TFTP_RRQ 1
 #define TFTP_DATA 3
@@ -3227,14 +3304,14 @@ char **argv;
 	int launched_by_server = 0;
 
 #ifdef TEK4404
-	/* are we being launched by /etc/server? */
+	/* are we being launched by /etc/server meaning stdin is a socket? */
 	struct stat s;
 	fstat(0, &s);
-	if (s.st_mode & S_IFPIPE)
+	if ((s.st_mode & S_IFCHR) && (major(s.st_size) == 9))
 	{
 		launched_by_server = 1;
 	}
-	console = fopen("/dev/console","w");
+	console = launched_by_server ? fopen("/dev/console","w") : stdout;
 	if (geteuid() != 0)
 		exit(-1);
 #else
@@ -3409,7 +3486,18 @@ char **argv;
 			exit(-4);
 		}
 	}
+	else
 #endif
+	{
+#ifdef TEK4404
+		char host_ip[32];
+		n = adb_open("/etc/net.db");
+		adb_search(n, "name", "teta");
+		adb_extract(n, "INET", host_ip);
+		adb_close(n);
+		fprintf(console, "%s: running on host: %s (%s)\n", basename(argv[0]), host_ip, host_name);
+#endif
+	}
 
 	/* run loop */
 	while(1)
@@ -3462,20 +3550,6 @@ char **argv;
 			continue;
 		}
 		else
-		if (FD_ISSET(portmapsock, &fd_in))
-		{
-			request.sock = portmapsock;
-			request.len = recvfrom(request.sock, request.buffer, sizeof(request.buffer), 0, (struct sockaddr *)&request.from, &fromSize);
-			if (request.len > 0)
-			{
-				/* validate */
-				if (validate(&request, PORTMAPPERD))
-				{
-					portmapperprog(&request);
-				}
-			}
-		}
-		else
 		if (FD_ISSET(mountsock, &fd_in))
 		{
 			request.sock = mountsock;
@@ -3519,6 +3593,20 @@ char **argv;
 						 nfsprog(&request, NFS_FALSE);
 					if (n == 3)
 						 nfs3prog(&request, NFS_FALSE);
+				}
+			}
+		}
+		else
+		if (FD_ISSET(portmapsock, &fd_in))
+		{
+			request.sock = portmapsock;
+			request.len = recvfrom(request.sock, request.buffer, sizeof(request.buffer), 0, (struct sockaddr*)&request.from, &fromSize);
+			if (request.len > 0)
+			{
+				/* validate */
+				if (validate(&request, PORTMAPPERD))
+				{
+					portmapperprog(&request);
 				}
 			}
 		}
