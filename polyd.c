@@ -2853,6 +2853,7 @@ struct conn* request;
 				nfs3prog(request, NFS_TRUE);
 		}
 #ifdef POLYD
+        extern void bootparamprog();
 		if (prog == BOOTPARAMD) bootparamprog(request, NFS_TRUE);
 #endif
 		return;
