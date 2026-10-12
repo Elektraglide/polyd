@@ -3,14 +3,12 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "sudo": true,
     "configurations": [
         {
             "name": "PolyDaemon",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/${fileBasenameNoExtension}",
-            "asRoot": true,
             "args": [
                 "wlp2s0",
                 "-hostname",
@@ -31,6 +29,12 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
+            "pipeTransport": {
+                "pipeProgram": "/usr/bin/sudo",
+                "pipeArgs": ["-n"],
+                "pipeCwd": "${workspaceFolder}",
+                "debuggerPath": "/usr/bin/gdb"
+            },
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -41,4 +45,3 @@
         }
     ],
 }
-
