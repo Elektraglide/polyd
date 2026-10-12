@@ -1,0 +1,44 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "sudo": true,
+    "configurations": [
+        {
+            "name": "PolyDaemon",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/${fileBasenameNoExtension}",
+            "asRoot": true,
+            "args": [
+                "wlp2s0",
+                "-hostname",
+                "cruella",
+                "-addr",
+                "192.168.1.71",
+                "-mac",
+                "08:00:20:7f:00:00",
+                "-base",
+                "/home/system/export/tftp",
+                "-fs",
+                "/home/system/export/root/cruella",
+                "-swap",
+                "/home/system/export/swap/cruella",
+            ],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+             ]
+        }
+    ],
+}
+
