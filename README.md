@@ -19,9 +19,14 @@ where "en0" is the network interface you are using.
 
 **Note that -fs and -swap filepaths need to end with the hostname you are using**
 
-You may need to pause your system portmapper so polyd gets the requests:
+**Note it needs to run as root (sudo) in order to listen on port 111**
 
-sudo systemctl stop portmap bootparamd
+You may need to pause your system portmapper & nfs so polyd gets the requests:
+
+sudo systemctl stop rpcbind rpcbind.socket
+sudo systemctl stop nfs-kernel-server
+
+*** These will restart when you reboot. ***
 
 # Installing
 - Get a SunOS .iso and unpack it onto your host computer.  Inside the unpacked files you need to locate and copy the minimal root Unix install to boot - from which you can do a full install.  It is named 'miniroot' and on *SunOS4.1.4* it is located in:
