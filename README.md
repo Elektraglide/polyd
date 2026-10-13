@@ -25,6 +25,7 @@ You may need to pause your system portmapper & nfs so polyd gets the requests:
 
 sudo systemctl stop rpcbind rpcbind.socket
 sudo systemctl stop nfs-kernel-server
+sudo systemctl stop tftpd-hpa.service
 
 *** These will restart when you reboot. ***
 
