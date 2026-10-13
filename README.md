@@ -23,8 +23,8 @@ where "en0" is the network interface you are using.
 
 You may need to pause your system portmapper & nfs so polyd gets the requests:
 
-sudo systemctl stop rpcbind rpcbind.socket
-sudo systemctl stop nfs-kernel-server
+sudo systemctl stop rpcbind rpcbind.socket\
+sudo systemctl stop nfs-kernel-server\
 sudo systemctl stop tftpd-hpa.service
 
 *** These will restart when you reboot. ***
@@ -38,7 +38,7 @@ This single file is actually an archive of a filesystem that needs unpacking to 
 
 - Once unpacked, copy the top level file 'boot.sun4c' to your '-base' path so it can be served by the tftpd. Rename it to:
 
-  C0A80147.SUN4C    (your '-addr' you will be using but in hexadecimal, and ALL CAPS)
+  C0A80147.SUN4C    (the filename is your '-addr' you will be using but in hexadecimal, and ALL CAPS)
 
 - Turn on your Sun worksation and at the boot prom ok prompt, type: 
 
