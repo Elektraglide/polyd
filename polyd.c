@@ -71,6 +71,9 @@ struct sir sirbuf;
 #include <net/bpf.h>
 #include <net/if_dl.h>
 #endif
+#if defined(__linux__)
+#include <sys/sysmacros.h>
+#endif
 
 #include <netdb.h>
 #include <libgen.h>
@@ -2853,7 +2856,7 @@ struct conn* request;
 				nfs3prog(request, NFS_TRUE);
 		}
 #ifdef POLYD
-        extern void bootparamprog();
+        extern void bootparamprog(struct conn *request, int isinternal);
 		if (prog == BOOTPARAMD) bootparamprog(request, NFS_TRUE);
 #endif
 		return;
