@@ -854,7 +854,7 @@ struct response *reply;
 struct stat *info;
 int fsid;
 {
-	unsigned int nfsperms = host2nfsmode(info->st_perm);
+	unsigned int nfsperms = host2nfsmode(info->st_mode, info->st_perm);
 	if ((info->st_mode & S_IFDIR) == S_IFDIR)
 	{
 		add_uint(reply, NFDIR);
