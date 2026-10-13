@@ -672,7 +672,7 @@ unsigned int nfsmode;
 #endif
 	}
 	
-	fprintf(console, "nfsmode2host:  %4.4x => %4.4x\n", nfsmode,perms);
+	/* fprintf(console, "nfsmode2host:  %4.4x => %4.4x\n", nfsmode,perms); */
 	return perms;
 }
 
@@ -1245,7 +1245,19 @@ struct stat *info;
 void release_filehandle(path)
 char *path;
 {
+    int n;
+    struct filehandle fh;
+    encodepath(path, fh.pathtokens);
 
+    for(n=0; n<mount_count; n++)
+    {
+        if (memcmp(mount_array[n].pathtokens, fh.pathtokens, sizeof(fh.pathtokens)))
+        {
+            mount_array[n] = mount_array[mount_count-1];
+            mount_count--;
+            break;
+        }
+    }
 }
 
 int make_rootrelativepath(fh, rootrelative)
@@ -1326,6 +1338,9 @@ struct filehandle *handle;
     /* store how many path components there are to the root in lower 4bits */
     result &= 0xfffffff0;
     result |= n;
+    
+    /* register this mount */
+    mount_array[mount_count++] = *handle;
     
 	return result;
 }
@@ -1454,7 +1469,17 @@ int isinternal;
 			release_filehandle(path);
 			add_uint(&reply, NFS_OK);
 			fprintf(console, "mountd: unmount Path = %s for client@%s\n", path,  inet_ntoa((request->from.sin_addr)) );
-			
+            break;
+        case 4:
+            /* Remove All Mount */
+            for(n=0; n<mount_count; n++)
+            {
+                char filepath[128];
+                
+                decodepath(mount_array[n].pathtokens, filepath);
+                fprintf(console, "mountd: unmount Path[%d] = %s for client@%s\n", n, filepath,  inet_ntoa((request->from.sin_addr)) );
+            }
+            mount_count = 0;
 			break;
 	}
 
