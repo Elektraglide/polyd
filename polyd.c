@@ -241,6 +241,8 @@ struct response {
 /* logging credential details */
 #define LOGCREDS 0
 
+int mount_count = 0;
+struct filehandle mount_array[8];
 
 FILE *console;
 
