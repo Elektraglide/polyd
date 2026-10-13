@@ -3263,8 +3263,6 @@ int open_bpf_device(const char *iface_name, uint8_t *hostmac) {
 	struct bpf_program filter = { 6, insnsIPV4 };
 	ioctl(bpf_fd, BIOCSETF, &filter);
 
-    printf("Successfully bound BPF node to interface: %s\n", iface_name);
-
     struct ifaddrs *ifap, *p;
 
     if (getifaddrs(&ifap) != 0)
@@ -3327,28 +3325,6 @@ char **argv;
 
     umask(0);
 
-	/* we act as portmapd, mountd and nfsd... */
-	portmapsock = launched_by_server ? fileno(stdin) : create_UDP_sock("portmapd", PORTMAPPERD_PORT);
-	mountsock = create_UDP_sock("mountd", MOUNTD_PORT);
-	locksock = create_UDP_sock("lockd", LOCKD_PORT);
-	nfssock = create_UDP_sock("nfsd", NFSD_PORT);
-
-#ifdef POLYD
-	/* required for sunbooting */
-	if (portmapsock < 0)
-	{
-		fprintf(console, "cannot bind portmapper\n");
-		exit(-2);
-	}
-#endif
-
-	/* cannot continue (not having portmapping is tolerable) */
-	if (mountsock < 0 || locksock < 0 || nfssock < 0)
-	{
-		fprintf(console, "cannot bind sockets\n");
-		exit(-2);
-	}
-	
 #ifdef POLYD
 	/* we are going to offer rarp, tftp and bootparams too */
 	int rarp_bpf_fd = 0;
@@ -3467,19 +3443,15 @@ char **argv;
 		/* do we have all the info we need? */
 		if (bp_machinename[0] && bp_addr[0] && bp_fs[0] && bp_swap[0])
 		{
-			/* other services */
-			tftpsock = create_UDP_sock("tftpd", 69);
-			bootparamsock = create_UDP_sock("bootparamd", BOOTPARAMD_PORT);
-			if (tftpsock < 0 || bootparamsock < 0)
-			{
-				fprintf(console, "cannot bind sockets\n");
-				exit(-3);
-			}
-
 			/* setup RARP packet handling using BPF */
 			rarp_bpf_fd = open_bpf_device(ifname, host_mac);
-        
-            fprintf(console, "%s: running on host: %s (%s)\n",  basename(argv[0]), inet_ntoa(host_assigned), host_name);
+            if (rarp_bpf_fd < 0)
+            {
+                fprintf(console, "rarp socket failed.\n");
+                exit(-4);
+            }
+            
+            fprintf(console, "Starting %s: host: %s (%s)\n",  basename(argv[0]), inet_ntoa(host_assigned), host_name);
         }
 		else
 		{
@@ -3490,16 +3462,50 @@ char **argv;
 	else
 #endif
 	{
+        char host_ip[32];
 #ifdef TEK4404
-		char host_ip[32];
 		n = adb_open("/etc/net.db");
 		adb_search(n, "name", "teta");
 		adb_extract(n, "INET", host_ip);
 		adb_close(n);
-		fprintf(console, "%s: running on host: %s (%s)\n", basename(argv[0]), host_ip, host_name);
+#else
+        strcpy(host_ip, inet_ntoa(host_assigned));
 #endif
+        fprintf(console, "Starting %s: host: %s (%s)\n", basename(argv[0]), host_ip, host_name);
 	}
 
+    /* we act as portmapd, mountd and nfsd... */
+    portmapsock = launched_by_server ? fileno(stdin) : create_UDP_sock("portmapd", PORTMAPPERD_PORT);
+    mountsock = create_UDP_sock("mountd", MOUNTD_PORT);
+    locksock = create_UDP_sock("lockd", LOCKD_PORT);
+    nfssock = create_UDP_sock("nfsd", NFSD_PORT);
+
+#ifdef POLYD
+    /* required for sunbooting */
+    if (portmapsock < 0)
+    {
+        fprintf(console, "cannot bind portmapper\n");
+        exit(-2);
+    }
+
+    /* other services */
+    tftpsock = create_UDP_sock("tftpd", 69);
+    bootparamsock = create_UDP_sock("bootparamd", BOOTPARAMD_PORT);
+    if (tftpsock < 0 || bootparamsock < 0)
+    {
+        fprintf(console, "cannot bind sockets\n");
+        exit(-3);
+    }
+
+#endif
+
+    /* cannot continue (not having portmapping is tolerable) */
+    if (mountsock < 0 || locksock < 0 || nfssock < 0)
+    {
+        fprintf(console, "cannot bind sockets\n");
+        exit(-2);
+    }
+    
 	/* run loop */
 	while(1)
 	{
