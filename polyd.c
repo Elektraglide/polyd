@@ -3312,20 +3312,21 @@ int open_bpf_device(const char *iface_name, uint8_t *hostmac) {
 
     for (p = ifap; p; p = p->ifa_next)
     {
-        if (p->ifa_addr && p->ifa_addr->sa_family == AF_INET)
+        if (!strcmp(p->ifa_name, iface_name))
         {
-            host_assigned = ((struct sockaddr_in *)p->ifa_addr)->sin_addr;
-        }
-        
-        /* Check the device name */
-        if ((strcmp(p->ifa_name, iface_name) == 0) &&
-            (p->ifa_addr->sa_family == AF_LINK))
-        {
-            struct sockaddr_dl* sdp;
-
-            sdp = (struct sockaddr_dl*) p->ifa_addr;
-            memcpy((void *)hostmac, sdp->sdl_data + sdp->sdl_nlen, ETHER_ADDR_LEN);
-            //break;
+            if (p->ifa_addr && p->ifa_addr->sa_family == AF_INET)
+            {
+                host_assigned = ((struct sockaddr_in *)p->ifa_addr)->sin_addr;
+            }
+            
+            /* Check the device name */
+            if (p->ifa_addr->sa_family == AF_LINK)
+            {
+                struct sockaddr_dl* sdp;
+                
+                sdp = (struct sockaddr_dl*) p->ifa_addr;
+                memcpy((void *)hostmac, sdp->sdl_data + sdp->sdl_nlen, ETHER_ADDR_LEN);
+            }
         }
     }
     freeifaddrs(ifap);
