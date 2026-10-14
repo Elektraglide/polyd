@@ -1343,6 +1343,11 @@ struct filehandle *handle;
     
     /* register this mount */
     mount_array[mount_count++] = *handle;
+    if (mount_count > 8)
+    {
+        mount_count--;
+        fprintf(console, "make_fsid: max mountpoints\n");
+    }
     
 	return result;
 }
