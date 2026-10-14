@@ -1467,15 +1467,22 @@ int isinternal;
 			}
 			break;
 		case 2:
-			fprintf(console, "mountd: Mount Entries for client@%s\n",  inet_ntoa((request->from.sin_addr)) );
 			/* Mount Entries */
+            fprintf(console, "mountd: Mount Entries for client@%s\n", inet_ntoa((request->from.sin_addr)) );
+            for(n=0; n<mount_count; n++)
+            {
+                char filepath[128];
+                
+                decodepath(mount_array[n].pathtokens, filepath);
+                fprintf(console, "mountd: Path[%d] = %s\n", n, filepath );
+            }
 			break;
 		case 3:
 			/* Remove Mount */
 			path = get_string(request);
 			release_filehandle(path);
 			add_uint(&reply, NFS_OK);
-			fprintf(console, "mountd: unmount Path = %s for client@%s\n", path,  inet_ntoa((request->from.sin_addr)) );
+			fprintf(console, "mountd: unmount Path = %s for client@%s\n", path, inet_ntoa((request->from.sin_addr)) );
             break;
         case 4:
             /* Remove All Mount */
@@ -1484,7 +1491,7 @@ int isinternal;
                 char filepath[128];
                 
                 decodepath(mount_array[n].pathtokens, filepath);
-                fprintf(console, "mountd: unmount Path[%d] = %s for client@%s\n", n, filepath,  inet_ntoa((request->from.sin_addr)) );
+                fprintf(console, "mountd: unmount Path[%d] = %s for client@%s\n", n, filepath, inet_ntoa((request->from.sin_addr)) );
             }
             mount_count = 0;
 			break;
